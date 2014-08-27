@@ -92,7 +92,7 @@ class Game
     elsif result == ['p','s']
       msg = 'Scissors cut paper.'
     else
-      msg = 'Rock breaks scissors'
+      msg = 'Rock breaks scissors.'
     end
 
     msg
@@ -106,7 +106,7 @@ class Game
     if answer == 'y'
       play
     else
-      say("Bye, #{@player.name}!")
+      say("Bye, #{@player.name}!")sub
     end
   end
 
