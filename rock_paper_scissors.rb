@@ -106,7 +106,7 @@ class Game
     if answer == 'y'
       play
     else
-      say("Bye, #{@player.name}!")sub
+      say("Bye, #{@player.name}!")
     end
   end
 
