@@ -27,7 +27,7 @@ end
 class PlayerHand < Hand
   def chooses
     loop do
-    Game::say("Choose rock, paper or scissors (r, p, or s):")
+    puts "Choose rock, paper or scissors (r, p, or s):"
     @choice = gets.chomp
     break if @choice == 'r' || @choice == 'p' || @choice == 's'
     end
@@ -45,11 +45,11 @@ class ComputerHand < Hand
 end
 
 class Game
-  def self.say(msg)
+  def say(msg)
     puts "=> #{msg}"
   end
   
-  def self.introduce_yourself
+  def introduce_yourself
     system 'clear'
     say("Welcome to my Rock, Paper, Scissors Game!")
     
@@ -60,7 +60,7 @@ class Game
     @computer = ComputerHand.new('Wile E. Computer')
   end
 
-  def self.play
+  def play
     system 'clear'
     say("Okay, #{@player.name}. Let's battle #{@computer.name}.")
     
@@ -70,7 +70,7 @@ class Game
     try_again
   end
 
-  def self.compare_hands
+  def compare_hands
     if @player == @computer
       say("It's a tie.")
     else
@@ -84,7 +84,7 @@ class Game
     end
   end
 
-  def self.winning_msg(choice_1, choice_2)
+  def winning_msg(choice_1, choice_2)
     result = [choice_1, choice_2].sort
     
     if result == ['p', 'r']
@@ -98,7 +98,7 @@ class Game
     msg
   end
 
-  def self.try_again
+  def try_again
     puts ''
     say("Enter 'y' to try again.")
     answer = gets.chomp
@@ -109,10 +109,9 @@ class Game
       say("Bye, #{@player.name}!")
     end
   end
-
-  introduce_yourself
-  play
 end
 
-rock_paper_scissors = Game.new
+game = Game.new
+game.introduce_yourself
+game.play
 
