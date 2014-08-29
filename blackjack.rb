@@ -41,6 +41,7 @@ class Player
   def blackjack?
     if @hand_value == 21
       @status = 'blackjack'
+      @final_status == 'winner'
       puts "#{@name} got blackjack!"
       puts ''
     end 
@@ -66,7 +67,8 @@ class HumanPlayer < Player
       end
       puts ''
     else
-      "Sorry, #{@name}, you have nothing to bet with. But you can play along for fun."
+      puts "Sorry, you have nothing to bet with. But you can play along for fun."
+      puts ''
       @bet = 0
     end
   end
@@ -273,20 +275,27 @@ class Game
     gets.chomp
     system 'clear'
 
-    @final_players = @all_players.select do |player|
-      player.status == ('waiting' || player.status == 'blackjack') && player.type != 'dealer'
-    end
-
     puts "Dealer's total: #{@dealer.hand_value}"
     puts ''
 
+    busted_players = @all_players.select { |player| player.status == 'busted' }
+
+    busted_players.each { |player| puts "#{player.name} busted out and lost." }
+
+    @final_players = @all_players.select do |player|
+      (player.status == 'waiting' || player.final_status == 'winner') && player.type != 'dealer'
+    end
 
     if @dealer.status == 'busted'
       @final_players.each { |player| player.final_status == 'winner' }
-      return
     end
 
     @final_players.each do |player| 
+      if player.final_status == 'winner'
+        puts "#{player.name} wins! "
+        break
+      end
+
       puts "#{player.name}'s total: #{player.hand_value}"
       
       if player.hand_value > @dealer.hand_value
