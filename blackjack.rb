@@ -1,3 +1,6 @@
+# FIXME 1: When dealer busts, players who are still in hand should be winners
+# FIXME 2: Need logic to handle natural blackjacks
+
 require 'pry'
 
 class Player
@@ -10,6 +13,12 @@ class Player
     @bank_total = 1000
     @type = type
     @status = nil
+  end
+
+  def clear_data
+    @hand = []
+    @status = nil
+    @final_status = nil
   end
 
   def draws_initial_hand(deck)
@@ -36,6 +45,16 @@ class Player
     @hand.each do |card|
       @hand_value += card[:value].to_i
     end
+
+    if @hand_value > 21
+    number_of_aces = @hand.select { |card| /Ace/ =~ card[:name] }.length
+    while number_of_aces > 0
+      @hand_value -= 10
+      number_of_aces -= 1
+      break if @hand_value <= 21 
+    end
+  end
+
   end
 
   def blackjack?
@@ -50,7 +69,7 @@ end
 
 class HumanPlayer < Player
   def shows_cards
-    puts "#{@name}'s cards: #{stringify_cards}"
+    puts "=> #{@name}'s cards: #{stringify_cards}"
     totals_hand_value
     puts "(Current total: #{@hand_value})"
     puts '' 
@@ -86,11 +105,11 @@ class HumanPlayer < Player
 
    def takes_a_turn(deck)
     if @type == 'player'
+      shows_cards
       loop do
         hit_or_stand
 
         if @status == 'hit me'
-          system 'clear'
           draws_another_card(deck)
           shows_cards
           busted? 
@@ -98,7 +117,12 @@ class HumanPlayer < Player
 
         break if @status == 'waiting' || @status == 'busted' 
       end
-    end 
+
+      puts 'Press enter to continue...'
+      gets.chomp
+      system 'clear'
+    end
+ 
   end
 
   def hit_or_stand
@@ -128,17 +152,17 @@ end
 
 class ComputerPlayer < Player
   def shows_cards
-    puts "Dealer is showing #{@hand[0][:name]} of #{@hand[0][:suit]}."
+    puts "=> Dealer is showing #{@hand[0][:name]} of #{@hand[0][:suit]}."
     puts ''
   end
 
   def shows_all_cards
-    puts "#{@name}'s cards: #{stringify_cards}"
+    puts "=> #{@name}'s cards: #{stringify_cards}"
     totals_hand_value
     puts "(Current total: #{@hand_value})"
     puts '' 
-  end
-    
+  end  
+
   def places_bet
   end
 
@@ -204,6 +228,7 @@ class Game
       name = gets.chomp
       @all_players.push(HumanPlayer.new(name,'player'))
       count += 1
+      puts ''
     end
 
     @all_players.push(@dealer = ComputerPlayer.new('Dealer', 'dealer'))
@@ -216,18 +241,26 @@ class Game
     puts "Players, place your bets!"
     puts ''
     
-    @all_players.each { |player| player.places_bet }
+    @all_players.each do |player| 
+      # Wipe last game's data if this is a repeat appearance
+      player.clear_data
+
+      player.places_bet
+    end
 
     system 'clear'
-    puts "Dealer deals..."
-    puts ''
     
     @all_players.each do |player| 
       player.draws_initial_hand(@deck) 
-      player.shows_cards
       player.totals_hand_value
       player.blackjack?
-      player.takes_a_turn(@deck)
+    end
+
+    if @dealer.status != 'blackjack'
+      @all_players.each do |player| 
+        @dealer.shows_cards
+        player.takes_a_turn(@deck)
+      end
     end
 
     if(anyone_left?)
@@ -241,17 +274,22 @@ class Game
     try_again
   end
   
+  def handle_natural_blackjacks
+    puts "GOTOTOTOTOTO"
+
+
+  end
+
   def anyone_left?
     @all_players.select { |player| player.status == 'waiting' }.length > 0
   end
 
   def dealers_turn
-    system 'clear'
-    puts "Dealer reveals hand..."
+    puts "Dealer flips the hole card..."
     puts ''
 
     @dealer.shows_all_cards
-    
+
     loop do
       @dealer.totals_hand_value
 
@@ -267,23 +305,24 @@ class Game
       end
 
       break if @dealer.status == 'waiting' || @dealer.status == 'busted'
-    end  
+    end
+
+    puts 'Press enter to continue...'
+    gets.chomp
+    system 'clear'  
   end
 
   def announce_winner
-    puts "Press enter to see who won!"
-    gets.chomp
-    system 'clear'
-
     puts "Dealer's total: #{@dealer.hand_value}"
     puts ''
 
     busted_players = @all_players.select { |player| player.status == 'busted' }
 
     busted_players.each { |player| puts "#{player.name} busted out and lost." }
+    puts ''
 
     @final_players = @all_players.select do |player|
-      (player.status == 'waiting' || player.final_status == 'winner') && player.type != 'dealer'
+      (player.status == 'waiting' || player.final_status == 'winner' || player.status == 'blackjack') && player.type != 'dealer'
     end
 
     if @dealer.status == 'busted'
@@ -317,6 +356,7 @@ class Game
     play if response == 'y'
   end
 end
+
 
 game = Game.new
 game.introduce_yourself
