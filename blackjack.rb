@@ -1,11 +1,6 @@
-# FIXME 1: When dealer busts, players who are still in hand should be winners
-# FIXME 2: Need logic to handle natural blackjacks
-
-require 'pry'
-
 class Player
   attr_accessor :status, :final_status
-  attr_reader :name, :hand, :hand_value, :type
+  attr_reader :name, :hand, :hand_value, :type, :bet
 
   def initialize(name, type)
     @name = name
@@ -35,40 +30,40 @@ class Player
     @hand.each do |hand|
       string += "#{hand[:name]} of #{hand[:suit]}"
       string += ', ' unless hand == @hand.last
-
     end
+
     string
   end
 
   def totals_hand_value
     @hand_value = 0
+    
     @hand.each do |card|
       @hand_value += card[:value].to_i
     end
 
     if @hand_value > 21
-    number_of_aces = @hand.select { |card| /Ace/ =~ card[:name] }.length
-    while number_of_aces > 0
-      @hand_value -= 10
-      number_of_aces -= 1
-      break if @hand_value <= 21 
+      number_of_aces = @hand.select { |card| /Ace/ =~ card[:name] }.length
+      
+      while number_of_aces > 0
+        @hand_value -= 10
+        number_of_aces -= 1
+        break if @hand_value <= 21 
+      end
     end
-  end
-
   end
 
   def blackjack?
     if @hand_value == 21
       @status = 'blackjack'
       @final_status == 'winner'
-      puts "#{@name} got blackjack!"
       puts ''
     end 
   end
 end
 
 class HumanPlayer < Player
-  def shows_cards
+  def shows_all_cards
     puts "=> #{@name}'s cards: #{stringify_cards}"
     totals_hand_value
     puts "(Current total: #{@hand_value})"
@@ -88,6 +83,9 @@ class HumanPlayer < Player
     else
       puts "Sorry, you have nothing to bet with. But you can play along for fun."
       puts ''
+      puts "Press Enter to continue..."
+      gets.chomp
+      
       @bet = 0
     end
   end
@@ -104,14 +102,23 @@ class HumanPlayer < Player
    end
 
    def takes_a_turn(deck)
+    if @status == 'blackjack'
+      puts "#{@name} got blackjack!"
+      puts ''
+      puts "Press Enter to continue..."
+      gets.chomp
+      system 'clear'
+      return
+    end
+
     if @type == 'player'
-      shows_cards
+      shows_all_cards
       loop do
         hit_or_stand
 
         if @status == 'hit me'
           draws_another_card(deck)
-          shows_cards
+          shows_all_cards
           busted? 
         end
 
@@ -122,7 +129,6 @@ class HumanPlayer < Player
       gets.chomp
       system 'clear'
     end
- 
   end
 
   def hit_or_stand
@@ -150,8 +156,8 @@ class HumanPlayer < Player
   end
 end
 
-class ComputerPlayer < Player
-  def shows_cards
+class Dealer < Player
+  def shows_one_card
     puts "=> Dealer is showing #{@hand[0][:name]} of #{@hand[0][:suit]}."
     puts ''
   end
@@ -162,6 +168,20 @@ class ComputerPlayer < Player
     puts "(Current total: #{@hand_value})"
     puts '' 
   end  
+
+  def busted?
+    totals_hand_value
+
+    if @hand_value > 21
+      puts "#{@name} busted."
+      puts ''
+      @status = 'busted'
+      @final_status = 'loser'
+    end
+   end
+
+  # Empty methods to overwrite player behavior 
+  # and avoid missing method errors
 
   def places_bet
   end
@@ -206,18 +226,14 @@ class Deck
 end
 
 class Game
-  def initialize
-
-  end
-
   def introduce_yourself
     system 'clear'
     puts "Welcome to Blackjack!"
     
     loop do
-      puts "How many players? (Enter 1-3)"
+      puts "How many players? (Enter 1-5)"
       @number_of_players = gets.chomp
-      break if /^[123]$/ =~ @number_of_players
+      break if /^[1-5]$/ =~ @number_of_players
     end
 
     count = 1
@@ -231,7 +247,7 @@ class Game
       puts ''
     end
 
-    @all_players.push(@dealer = ComputerPlayer.new('Dealer', 'dealer'))
+    @all_players.push(@dealer = Dealer.new('Dealer', 'dealer'))
     @dealer = @all_players[-1]
   end
 
@@ -258,28 +274,24 @@ class Game
 
     if @dealer.status != 'blackjack'
       @all_players.each do |player| 
-        @dealer.shows_cards
-        player.takes_a_turn(@deck)
+        @dealer.shows_one_card
+        player.takes_a_turn(@deck) 
       end
+    else 
+      handle_natural_blackjack
     end
 
     if(anyone_left?)
       dealers_turn
     end
 
-    announce_winner
+    choose_winners
 
     @all_players.each { |player| player.settle_up }
 
     try_again
   end
   
-  def handle_natural_blackjacks
-    puts "GOTOTOTOTOTO"
-
-
-  end
-
   def anyone_left?
     @all_players.select { |player| player.status == 'waiting' }.length > 0
   end
@@ -298,7 +310,7 @@ class Game
         @dealer.draws_another_card(@deck)
         @dealer.shows_all_cards
       elsif @dealer.hand_value > 21
-        puts 'Dealer busted!'
+        puts 'Dealer busts!'
         @dealer.status = 'busted'
       else
         @dealer.status = 'waiting'
@@ -312,13 +324,37 @@ class Game
     system 'clear'  
   end
 
-  def announce_winner
+  def handle_natural_blackjack
+    puts 'Dealer got blackjack!'
+    
+    @all_players.each { |player| player.shows_all_cards }
+
+    winners = @all_players.select { |player| player.status == 'blackjack' && player.type != 'dealer' }
+    losers = @all_players.select { |player| player.status != 'blackjack' }
+    
+    winners.each do |winner|  
+      puts "#{winner.name} ties with dealer."
+    end
+
+    losers.each do |loser|
+      loser.final_status = 'loser' 
+      puts "#{loser.name} loses. -$#{loser.bet}"
+      loser.settle_up
+    end
+
+    try_again
+  end
+
+  def choose_winners
     puts "Dealer's total: #{@dealer.hand_value}"
     puts ''
 
     busted_players = @all_players.select { |player| player.status == 'busted' }
 
-    busted_players.each { |player| puts "#{player.name} busted out and lost." }
+    busted_players.each do |player| 
+      puts "#{player.name} busted. -$#{player.bet}"
+    end
+    
     puts ''
 
     @final_players = @all_players.select do |player|
@@ -326,37 +362,43 @@ class Game
     end
 
     if @dealer.status == 'busted'
-      @final_players.each { |player| player.final_status == 'winner' }
+      @final_players.each do |player| 
+        player.final_status = 'winner'
+        puts "#{player.name} wins $#{player.bet}!"
+        player.settle_up 
+      end
+
+      try_again
     end
 
     @final_players.each do |player| 
       if player.final_status == 'winner'
-        puts "#{player.name} wins! "
+        puts "#{player.name} wins $#{player.bet}!"
         break
       end
 
       puts "#{player.name}'s total: #{player.hand_value}"
       
       if player.hand_value > @dealer.hand_value
-        puts "#{player.name} wins!"
+        puts "#{player.name} beats the dealer. +$#{player.bet}!"
         player.final_status = 'winner'
       elsif player.hand_value < @dealer.hand_value
-        puts "#{player.name} loses."
+        puts "#{player.name} loses to the dealer. -$#{player.bet}"
         player.final_status = 'loser'
       else
         puts "Push! #{player.name} ties."
       end
+
+      puts ''
     end
   end
  
   def try_again
     puts "Enter 'y' to play this game again:"
     response = gets.chomp
-
     play if response == 'y'
   end
 end
-
 
 game = Game.new
 game.introduce_yourself
